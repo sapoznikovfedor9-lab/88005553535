@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мессенджер со звонками</title>
+<style>
+  :root{
+    --bg:#0e1320; --panel:#141b2b; --panel2:#1b2436; --line:#243044;
+    --text:#e8ecf4; --muted:#8b98ad; --accent:#6c8cff; --accent2:#8b5cf6;
+    --green:#22c55e; --red:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Ubuntu,sans-serif;
+    background:radial-gradient(1200px 600px at 20% -10%, #1c2740 0%, var(--bg) 55%);
+    color:var(--text); overflow:hidden;
+  }
+  .hidden{display:none !important}
+  button{font-family:inherit;cursor:pointer;border:none;outline:none}
+  input{font-family:inherit;outline:none}
+
+  /* ================= AUTH ================= */
+  .auth{
+    height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .auth-card{
+    width:100%; max-width:400px; background:var(--panel); border:1px solid var(--line);
+    border-radius:22px; padding:34px 28px; text-align:center;
+    box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(108,140,255,.08) inset;
+    animation:pop .45s cubic-bezier(.2,.9,.3,1.3);
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+  .logo{
+    width:66px;height:66px;margin:0 auto 16px;border-radius:20px;
+    display:flex;align-items:center;justify-content:center;font-size:32px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    box-shadow:0 12px 32px rgba(108,140,255,.4);
+  }
+  .auth-card h1{font-size:22px;margin-bottom:6px;letter-spacing:.3px}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  .auth-card input{
+    width:100%;padding:15px 16px;border-radius:14px;background:var(--panel2);
+    border:1px solid var(--line);color:var(--text);font-size:16px;text-align:center;
+    letter-spacing:.5px;transition:.2s;
+  }
+  .auth-card input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,140,255,.15)}
+  .auth-card button{
+    width:100%;margin-top:12px;padding:15px;border-radius:14px;font-size:15px;font-weight:600;
+    color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    transition:transform .12s, filter .2s;
+  }
+  .auth-card button:hover{filter:brightness(1.1)}
+  .auth-card button:active{transform:scale(.98)}
+  .hint{min-height:20px;margin-top:12px;font-size:13px;transition:.2s}
+  .hint.err{color:#ff7b7b}
+  .hint.ok{color:#4ade80}
+
+  /* ================= APP ================= */
+  .app{display:grid;grid-template-columns:310px 1fr;height:100vh}
+
+  /* Sidebar */
+  .sidebar{
+    background:var(--panel);border-right:1px solid var(--line);
+    display:flex;flex-direction:column;min-width:0;
+  }
+  .sidebar-head{
+    display:flex;align-items:center;gap:11px;padding:16px;
+    border-bottom:1px solid var(--line);
+  }
+  .avatar{
+    width:42px;height:42px;border-radius:50%;flex:0 0 42px;
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:17px;color:#fff;
+  }
+  .me-name{font-size:14px;font-weight:600}
+  .me-phone{font-size:11.5px;color:var(--muted)}
+  #logoutBtn{
+    margin-left:auto;background:var(--panel2);color:var(--muted);
+    width:34px;height:34px;border-radius:10px;font-size:15px;transition:.2s;
+  }
+  #logoutBtn:hover{color:#fff;background:#2a3550}
+  .contacts{flex:1;overflow-y:auto;padding:10px}
+  .contacts::-webkit-scrollbar{width:6px}
+  .contacts::-webkit-scrollbar-thumb{background:#2a3550;border-radius:3px}
+  .contact{
+    display:flex;align-items:center;gap:11px;padding:10px;border-radius:14px;
+    cursor:pointer;transition:.15s;margin-bottom:4px;
+  }
+  .contact:hover{background:var(--panel2)}
+  .contact.active{background:linear-gradient(135deg,rgba(108,140,255,.22),rgba(139,92,246,.16));}
+  .c-name{font-size:14px;font-weight:600}
+  .c-last{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .no-contacts{padding:26px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.7}
+
+  /* Main */
+  .main{display:flex;flex-direction:column;min-width:0;background:var(--bg)}
+  .topbar{
+    display:flex;align-items:center;gap:14px;padding:12px 18px;
+    border-bottom:1px solid var(--line);background:rgba(20,27,43,.75);
+    backdrop-filter:blur(10px);flex-wrap:wrap;
+  }
+  .chat-title{font-size:15px;font-weight:600;color:var(--muted)}
+  .chat-title b{color:var(--text)}
+  .code-area{margin-left:auto;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .my-code{
+    font-size:12px;color:var(--muted);background:var(--panel2);
+    border:1px solid var(--line);padding:8px 12px;border-radius:11px;white-space:nowrap;
+  }
+  .my-code b{color:#9db4ff;letter-spacing:1.5px;font-family:ui-monospace,monospace}
+  .code-area input{
+    width:130px;padding:9px 12px;border-radius:11px;background:var(--panel2);
+    border:1px solid var(--line);color:var(--text);font-size:13px;
+    text-transform:uppercase;letter-spacing:1.5px;transition:.2s;
+  }
+  .code-area input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,140,255,.15)}
+  #findBtn{
+    padding:9px 16px;border-radius:11px;font-size:13px;font-weight:600;color:#fff;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));transition:.15s;
+  }
+  #findBtn:hover{filter:brightness(1.12)}
+  #findBtn:active{transform:scale(.97)}
+
+  .chat-area{flex:1;display:flex;flex-direction:column;min-height:0}
+  .empty{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;color:var(--muted);font-size:14px;text-align:center;line-height:1.8;
+  }
+  .empty-icon{font-size:52px;opacity:.55}
+
+  .chat{flex:1;display:flex;flex-direction:column;min-height:0}
+  .messages{
+    flex:1;overflow-y:auto;padding:22px;display:flex;flex-direction:column;gap:10px;
+  }
+  .messages::-webkit-scrollbar{width:6px}
+  .messages::-webkit-scrollbar-thumb{background:#2a3550;border-radius:3px}
+  .msg{display:flex;flex-direction:column;max-width:70%;animation:msgIn .22s ease}
+  @keyframes msgIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+  .msg.me{align-self:flex-end;align-items:flex-end}
+  .msg.them{align-self:flex-start;align-items:flex-start}
+  .bubble{
+    padding:10px 14px;border-radius:16px;font-size:14px;line-height:1.45;word-break:break-word;
+  }
+  .msg.me .bubble{background:linear-gradient(135deg,var(--accent),var(--accent2));border-bottom-right-radius:5px}
+  .msg.them .bubble{background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:5px}
+  .time{font-size:10.5px;color:var(--muted);margin-top:4px;padding:0 4px}
+  .msg.sys{
+    align-self:center;font-size:11.5px;color:var(--muted);background:var(--panel2);
+    border:1px solid var(--line);padding:6px 14px;border-radius:20px;max-width:none;
+  }
+
+  .composer{
+    display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line);
+    background:rgba(20,27,43,.6);
+  }
+  .composer input{
+    flex:1;padding:13px 16px;border-radius:14px;background:var(--panel2);
+    border:1px solid var(--line);color:var(--text);font-size:14px;transition:.2s;
+  }
+  .composer input:focus{border-color:var(--accent)}
+  .call-btn,.send-btn{
+    width:48px;flex:0 0 48px;border-radius:14px;font-size:18px;color:#fff;
+    display:flex;align-items:center;justify-content:center;transition:.15s;
+  }
+  .call-btn{background:linear-gradient(135deg,#22c55e,#16a34a)}
+  .send-btn{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+  .call-btn:hover,.send-btn:hover{filter:brightness(1.12)}
+  .call-btn:active,.send-btn:active{transform:scale(.94)}
+
+  /* ================= CALL ================= */
+  .call-overlay{
+    position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 50% 40%, rgba(28,39,64,.96), rgba(8,11,20,.98));
+    backdrop-filter:blur(6px);animation:fadeIn .25s ease;
+  }
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .call-card{text-align:center;animation:pop .35s cubic-bezier(.2,.9,.3,1.3)}
+  .call-avatar{
+    width:120px;height:120px;border-radius:50%;margin:0 auto 22px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:48px;font-weight:700;color:#fff;position:relative;
+  }
+  .call-avatar::after{
+    content:'';position:absolute;inset:-14px;border-radius:50%;
+    border:2px solid rgba(108,140,255,.5);animation:ring 1.8s infinite ease-out;
+  }
+  .call-avatar::before{
+    content:'';position:absolute;inset:-14px;border-radius:50%;
+    border:2px solid rgba(108,140,255,.5);animation:ring 1.8s infinite ease-out .9s;
+  }
+  @keyframes ring{0%{transform:scale(.9);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+  .call-name{font-size:24px;font-weight:600;margin-bottom:8px}
+  .call-status{font-size:14px;color:var(--muted);margin-bottom:6px}
+  .call-timer{font-size:16px;color:var(--green);font-variant-numeric:tabular-nums;height:22px}
+  .hangup{
+    margin-top:34px;width:70px;height:70px;border-radius:50%;font-size:26px;
+    background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;
+    box-shadow:0 12px 34px rgba(239,68,68,.45);transition:.15s;
+  }
+  .hangup:hover{filter:brightness(1.12)}
+  .hangup:active{transform:scale(.93)}
+
+  /* Toast */
+  #toast{
+    position:fixed;left:50%;bottom:34px;transform:translate(-50%,20px);
+    background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:12px 22px;border-radius:14px;font-size:13.5px;z-index:200;
+    opacity:0;pointer-events:none;transition:.28s;
+    box-shadow:0 16px 40px rgba(0,0,0,.5);
+  }
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr}
+    .sidebar{display:none}
+    .msg{max-width:85%}
+    .code-area input{width:100px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== ЭКРАН ВХОДА ==================== -->
+<div class="auth" id="authScreen">
+  <div class="auth-card">
+    <div class="logo">📞</div>
+    <h1>Мессенджер</h1>
+    <p class="sub">Введите номер телефона, чтобы войти</p>
+    <input id="phoneInput" type="tel" placeholder="+7XXXXXXXXXX" autocomplete="off">
+    <button id="checkBtn">Войти</button>
+    <div class="hint" id="authHint"></div>
+  </div>
+</div>
+
+<!-- ==================== МЕССЕНДЖЕР ==================== -->
+<div class="app hidden" id="messenger">
+  <aside class="sidebar">
+    <div class="sidebar-head">
+      <div class="avatar" id="meAvatar"></div>
+      <div style="min-width:0">
+        <div class="me-name" id="meName"></div>
+        <div class="me-phone" id="mePhone"></div>
+      </div>
+      <button id="logoutBtn" title="Выйти">⏻</button>
+    </div>
+    <div class="contacts" id="contacts"></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="chat-title" id="chatTitle">Выберите чат</div>
+      <div class="code-area">
+        <div class="my-code">Ваш код: <b id="myCode">—</b></div>
+        <input id="friendCodeInput" placeholder="Код друга" maxlength="6" autocomplete="off">
+        <button id="findBtn">Найти</button>
+      </div>
+    </header>
+
+    <div class="chat-area">
+      <div class="empty" id="emptyState">
+        <div class="empty-icon">💬</div>
+        <div>Введите код друга в правом верхнем углу —<br>мессенджер найдёт его и позвонит</div>
+      </div>
+
+      <div class="chat hidden" id="chatView">
+        <div class="messages" id="messages"></div>
+        <div class="composer">
+          <button class="call-btn" id="callBtn" title="Позвонить">📞</button>
+          <input id="msgInput" placeholder="Сообщение…" autocomplete="off">
+          <button class="send-btn" id="sendBtn" title="Отправить">➤</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ==================== ЗВОНОК ==================== -->
+<div class="call-overlay hidden" id="callOverlay">
+  <div class="call-card">
+    <div class="call-avatar" id="callAvatar"></div>
+    <div class="call-name" id="callName"></div>
+    <div class="call-status" id="callStatus">Вызов…</div>
+    <div class="call-timer" id="callTimer"></div>
+    <button class="hangup" id="hangupBtn">✕</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+   УТИЛИТЫ — ОБЪЯВЛЕНЫ ПЕРВЫМИ (исправление бага TDZ)
+   ========================================================= */
+function digits(s) {
+  return (s || '').replace(/\D/g, '');
+}
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function $(id) { return document.getElementById(id); }
+function nowTime() {
+  return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+function toast(text) {
+  const t = $('toast');
+  t.textContent = text;
+  t.classList.add('show');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* =========================================================
+   РЕЕСТР ПОЛЬЗОВАТЕЛЕЙ (начинается пустым — наполняется при входе)
+   ========================================================= */
+const REGISTRY = {}; // key: '79991234567' (11 цифр), value: user
+
+const COLOR_PALETTE = [
+  '#7c5cff', '#22c55e', '#f59e0b', '#ef4444',
+  '#06b6d4', '#ec4899', '#8b5cf6', '#10b981',
+  '#f97316', '#3b82f6', '#a855f7', '#14b8a6'
+];
+
+const REPLIES = [
+  'Привет! 👋', 'Как дела?', 'Сейчас перезвоню', 'Ок, договорились',
+  'Ха-ха, точно 😄', 'Я на встрече, напишу позже', 'Супер!', 'Давай вечером созвонимся'
+];
+
+/* =========================================================
+   ГЕНЕРАЦИЯ КОДА И ЦВЕТА (детерминированно из номера)
+   ========================================================= */
+function hashString(s) {
+  let h1 = 5381, h2 = 52711;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 = ((h1 << 5) + h1 + c) >>> 0;
+    h2 = ((h2 << 3) + h2 + c * 7) >>> 0;
+  }
+  return [h1, h2];
+}
+
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function generateCode(seed) {
+  let [h1, h2] = hashString(seed);
+  let out = '';
+  for (let i = 0; i < 6; i++) {
+    out += CODE_ALPHABET[(h1 + h2 * (i + 1)) % CODE_ALPHABET.length];
+    h1 = (h1 * 1103515245 + 12345) >>> 0;
+    h2 = (h2 * 1664525 + 1013904223) >>> 0;
+  }
+  return out;
+}
+
+function pickColor(seed) {
+  const [h] = hashString(seed);
+  return COLOR_PALETTE[h % COLOR_PALETTE.length];
+}
+
+function getOrCreateUser(d11) {
+  // d11 — строка из 11 цифр, начинается с 7
+  if (REGISTRY[d11]) return REGISTRY[d11];
+
+  let code = generateCode(d11);
+  let attempt = 0;
+  while (Object.values(REGISTRY).some(u => u.code === code) && attempt < 20) {
+    code = generateCode(d11 + ':' + attempt);
+    attempt++;
+  }
+
+  const user = {
+    phone: '+' + d11,
+    code,
+    name: 'Пользователь ' + d11.slice(-4),
+    color: pickColor(d11)
+  };
+  REGISTRY[d11] = user;
+  return user;
+}
+
+/* =========================================================
+   СОСТОЯНИЕ
+   ========================================================= */
+const state = {
+  me: null,
+  contacts: [],
+  activeId: null,
+  messages: {},
+  call: null
+};
+
+/* =========================================================
+   ВХОД — СТРОГАЯ ПРОВЕРКА
+   ========================================================= */
+function setHint(text, cls) {
+  const h = $('authHint');
+  h.textContent = text;
+  h.className = 'hint ' + (cls || '');
+}
+
+function tryLogin() {
+  const raw = $('phoneInput').value.trim();
+
+  // 1. Начинается с +7
+  if (!raw.startsWith('+7')) {
+    setHint('❌ Номер должен начинаться с +7', 'err');
+    return;
+  }
+
+  // 2. После +7 ровно 10 цифр
+  const rest = raw.slice(2);
+  if (rest.length !== 10) {
+    setHint(`❌ После +7 должно быть 10 цифр (сейчас ${rest.length})`, 'err');
+    return;
+  }
+
+  // 3. Только цифры
+  if (!/^\d{10}$/.test(rest)) {
+    setHint('❌ После +7 должны быть только цифры', 'err');
+    return;
+  }
+
+  // 4. Создаём/достаём пользователя
+  const user = getOrCreateUser('7' + rest);
+
+  setHint('✅ Вход…', 'ok');
+  setTimeout(() => login(user), 400);
+}
+
+function login(user) {
+  state.me = user;
+  $('authScreen').classList.add('hidden');
+  $('messenger').classList.remove('hidden');
+
+  $('meAvatar').textContent = user.name[0];
+  $('meAvatar').style.background = user.color;
+  $('meName').textContent = user.name;
+  $('mePhone').textContent = user.phone;
+  $('myCode').textContent = user.code;
+
+  renderContacts();
+  renderChat();
+  $('friendCodeInput').focus();
+}
+
+/* =========================================================
+   КОНТАКТЫ
+   ========================================================= */
+function renderContacts() {
+  const box = $('contacts');
+  box.innerHTML = '';
+
+  if (state.contacts.length === 0) {
+    box.innerHTML = '<div class="no-contacts">Пока нет контактов.<br>Введите код друга ↗</div>';
+    return;
+  }
+
+  state.contacts.forEach(u => {
+    const el = document.createElement('div');
+    el.className = 'contact' + (state.activeId === u.phone ? ' active' : '');
+    el.innerHTML = `
+      <div class="avatar" style="background:${u.color}">${esc(u.name[0])}</div>
+      <div style="min-width:0">
+        <div class="c-name">${esc(u.name)}</div>
+        <div class="c-last">код: ${esc(u.code)}</div>
+      </div>`;
+    el.onclick = () => openChat(u);
+    box.appendChild(el);
+  });
+}
+
+/* =========================================================
+   ПОИСК ДРУГА ПО КОДУ + АВТОЗВОНОК
+   ========================================================= */
+function findFriend() {
+  const code = $('friendCodeInput').value.trim().toUpperCase();
+
+  if (!code) {
+    toast('Введите код друга');
+    return;
+  }
+
+  const user = Object.values(REGISTRY).find(u => u.code === code);
+
+  if (!user) {
+    toast('Пользователь с таким кодом не найден');
+    return;
+  }
+
+  if (digits(user.phone) === digits(state.me.phone)) {
+    toast('Это ваш собственный код 🙂');
+    return;
+  }
+
+  if (!state.contacts.some(c => c.phone === user.phone)) {
+    state.contacts.push(user);
+  }
+
+  $('friendCodeInput').value = '';
+  openChat(user);
+  toast('Найден: ' + user.name + ' — звоним…');
+
+  setTimeout(() => startCall(user), 700);
+}
+
+/* =========================================================
+   ЧАТ
+   ========================================================= */
+function openChat(user) {
+  state.activeId = user.phone;
+
+  $('emptyState').classList.add('hidden');
+  $('chatView').classList.remove('hidden');
+  $('chatTitle').innerHTML = `<b>${esc(user.name)}</b> · ${esc(user.phone)}`;
+
+  renderContacts();
+  renderChat();
+  renderMessages();
+  $('msgInput').focus();
+}
+
+function renderChat() {
+  const has = !!state.activeId;
+  $('emptyState').classList.toggle('hidden', has);
+  $('chatView').classList.toggle('hidden', !has);
+  if (!has) $('chatTitle').textContent = 'Выберите чат';
+}
+
+function pushMsg(phone, msg) {
+  (state.messages[phone] = state.messages[phone] || []).push(msg);
+}
+
+function renderMessages() {
+  const box = $('messages');
+  box.innerHTML = '';
+
+  const list = state.messages[state.activeId] || [];
+
+  list.forEach(m => {
+    const div = document.createElement('div');
+
+    if (m.from === 'sys') {
+      div.className = 'msg sys';
+      div.textContent = m.text;
+    } else {
+      div.className = 'msg ' + (m.from === 'me' ? 'me' : 'them');
+      div.innerHTML = `<div class="bubble">${esc(m.text)}</div><div class="time">${esc(m.time)}</div>`;
+    }
+
+    box.appendChild(div);
+  });
+
+  box.scrollTop = box.scrollHeight;
+}
+
+function sendMessage() {
+  const inp = $('msgInput');
+  const text = inp.value.trim();
+  if (!text || !state.activeId) return;
+
+  const peer = state.activeId;
+  pushMsg(peer, { from: 'me', text, time: nowTime() });
+  inp.value = '';
+  renderMessages();
+
+  setTimeout(() => {
+    pushMsg(peer, {
+      from: 'them',
+      text: REPLIES[Math.floor(Math.random() * REPLIES.length)],
+      time: nowTime()
+    });
+    if (state.activeId === peer) renderMessages();
+  }, 1200 + Math.random() * 1400);
+}
+
+/* =========================================================
+   ЗВОНКИ
+   ========================================================= */
+function fmtTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+function startCall(user) {
+  if (state.call) return;
+
+  state.call = {
+    user,
+    connected: false,
+    seconds: 0,
+    timers: [],
+    timer: null
+  };
+
+  $('callOverlay').classList.remove('hidden');
+  $('callAvatar').textContent = user.name[0];
+  $('callAvatar').style.background = user.color;
+  $('callName').textContent = user.name;
+  $('callStatus').textContent = 'Вызов…';
+  $('callTimer').textContent = '';
+
+  const c = state.call;
+
+  c.timers.push(setTimeout(() => {
+    if (!state.call) return;
+    $('callStatus').textContent = 'Соединение…';
+  }, 1700));
+
+  c.timers.push(setTimeout(() => {
+    if (!state.call) return;
+    c.connected = true;
+    c.seconds = 0;
+    $('callStatus').textContent = 'Соединение установлено';
+    $('callTimer').textContent = '0:00';
+    c.timer = setInterval(() => {
+      c.seconds++;
+      $('callTimer').textContent = fmtTime(c.seconds);
+    }, 1000);
+  }, 3400));
+}
+
+function endCall() {
+  const c = state.call;
+  if (!c) return;
+
+  c.timers.forEach(t => clearTimeout(t));
+  if (c.timer) clearInterval(c.timer);
+
+  const duration = c.connected ? fmtTime(c.seconds) : null;
+
+  $('callOverlay').classList.add('hidden');
+  state.call = null;
+
+  if (c.user && state.contacts.some(u => u.phone === c.user.phone)) {
+    pushMsg(c.user.phone, {
+      from: 'sys',
+      text: duration ? `📞 Звонок завершён · ${duration}` : '📞 Вызов отменён',
+      time: nowTime()
+    });
+    if (state.activeId === c.user.phone) renderMessages();
+  }
+}
+
+/* =========================================================
+   ВЫХОД
+   ========================================================= */
+function logout() {
+  if (state.call) endCall();
+  state.me = null;
+  state.contacts = [];
+  state.activeId = null;
+  state.messages = {};
+
+  $('messenger').classList.add('hidden');
+  $('authScreen').classList.remove('hidden');
+  $('phoneInput').value = '';
+  setHint('', '');
+}
+
+/* =========================================================
+   ОБРАБОТЧИКИ
+   ========================================================= */
+$('checkBtn').addEventListener('click', tryLogin);
+$('phoneInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+$('findBtn').addEventListener('click', findFriend);
+$('friendCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') findFriend(); });
+
+$('sendBtn').addEventListener('click', sendMessage);
+$('msgInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+
+$('callBtn').addEventListener('click', () => {
+  const u = state.contacts.find(c => c.phone === state.activeId);
+  if (u) startCall(u);
+});
+
+$('hangupBtn').addEventListener('click', endCall);
+$('logoutBtn').addEventListener('click', logout);
+
+// Код друга — только заглавные буквы и цифры
+$('friendCodeInput').addEventListener('input', e => {
+  e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+});
+
+// Номер телефона — оставляем только цифры и ведущий "+"
+$('phoneInput').addEventListener('input', e => {
+  let v = e.target.value.replace(/[^\d+]/g, '');
+  // "+" только первым символом и только один
+  if (v.includes('+')) {
+    v = '+' + v.replace(/\+/g, '');
+  }
+  // Ограничение: +7 + 10 цифр = 12 символов
+  if (v.length > 12) v = v.slice(0, 12);
+  e.target.value = v;
+});
+</script>
+</body>
+</html>
